@@ -1,0 +1,172 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0"/>
+  <title>Split or Bail</title>
+  <link rel="stylesheet" href="styles.css" />
+  <link href="https://fonts.googleapis.com/css2?family=Syne:wght@400;700;800&family=DM+Mono:wght@400;500&family=Creepster&display=swap" rel="stylesheet"/>
+</head>
+<body>
+
+  <!-- ───────── NORMAL MODE ───────── -->
+  <div id="app" class="app">
+
+    <header class="hero">
+      <div class="hero-tag">Bill Splitter</div>
+      <h1 class="hero-title">Split or<br><span class="accent">Bail.</span></h1>
+      <p class="hero-sub">Divide dinner. Dodge awkward math. Keep the friendship.</p>
+    </header>
+
+    <main class="card-grid">
+
+      <!-- INPUT CARD -->
+      <section class="card card--input">
+        <div class="card-label">The Setup</div>
+
+        <div class="field-group">
+          <label>Total Bill ($)</label>
+          <input id="billAmount" type="number" placeholder="0.00" min="0" step="0.01" autocomplete="off"/>
+          <span class="field-hint">Try typing 666 👀</span>
+        </div>
+
+        <div class="field-group">
+          <label>Number of People</label>
+          <div class="counter-row">
+            <button class="counter-btn" id="decreasePeople">−</button>
+            <span id="peopleCount">2</span>
+            <button class="counter-btn" id="increasePeople">+</button>
+          </div>
+        </div>
+
+        <div class="field-group">
+          <label>Tip %</label>
+          <div class="tip-chips">
+            <button class="tip-chip" data-tip="0">0%</button>
+            <button class="tip-chip active" data-tip="10">10%</button>
+            <button class="tip-chip" data-tip="15">15%</button>
+            <button class="tip-chip" data-tip="18">18%</button>
+            <button class="tip-chip" data-tip="20">20%</button>
+            <button class="tip-chip" data-tip="25">25%</button>
+          </div>
+          <input id="customTip" type="number" placeholder="Custom %" min="0" max="100"/>
+        </div>
+
+        <div class="field-group">
+          <label>Name the split</label>
+          <div id="namesList" class="names-list"></div>
+          <button class="add-name-btn" id="addNameBtn">+ Add person</button>
+        </div>
+      </section>
+
+      <!-- RESULT CARD -->
+      <section class="card card--result">
+        <div class="card-label">The Verdict</div>
+
+        <div class="result-row">
+          <span>Subtotal</span>
+          <strong id="resSubtotal">$0.00</strong>
+        </div>
+        <div class="result-row">
+          <span>Tip</span>
+          <strong id="resTip">$0.00</strong>
+        </div>
+        <div class="result-row result-row--total">
+          <span>Total</span>
+          <strong id="resTotal">$0.00</strong>
+        </div>
+
+        <div class="divider"></div>
+
+        <div class="per-person-box">
+          <div class="pp-label">Each person pays</div>
+          <div class="pp-amount" id="resPerPerson">$0.00</div>
+        </div>
+
+        <div id="personBreakdown" class="person-breakdown"></div>
+
+        <button class="cta-btn" id="copyBtn">Copy Split 📋</button>
+        <button class="cta-btn cta-btn--ghost" id="resetBtn">Reset</button>
+
+        <div id="copyToast" class="toast">Copied to clipboard! 🎉</div>
+      </section>
+
+    </main>
+
+    <footer class="footer">
+      Made with mild anxiety &amp; too much caffeine.
+    </footer>
+  </div>
+
+  <!-- ───────── HORROR MODE ───────── -->
+  <div id="horrorApp" class="horror-app hidden">
+
+    <div id="glitchOverlay" class="glitch-overlay"></div>
+    <div id="staticNoise" class="static-noise"></div>
+
+    <div class="horror-container">
+      <div id="horrorHeader" class="horror-header">
+        <div class="horror-signal">▓▓░░ SIGNAL INTERCEPTED ░░▓▓</div>
+        <h1 class="horror-title" data-text="SPLIT OR SUFFER">SPLIT OR SUFFER</h1>
+        <p class="horror-sub">The Entity has joined your table.</p>
+      </div>
+
+      <div class="horror-card">
+        <div class="horror-entity-status">
+          <div class="entity-dot"></div>
+          <span id="entityStatusText">The Entity is watching...</span>
+        </div>
+
+        <!-- Horror chat -->
+        <div id="horrorChat" class="horror-chat">
+          <div class="chat-msg entity-msg" id="openingMsg">
+            <span class="entity-label">ENTITY_666</span>
+            <p></p>
+          </div>
+        </div>
+
+        <!-- Horror bill display -->
+        <div class="horror-bill-display">
+          <div class="hb-row">
+            <span>Bill Summoned</span>
+            <span id="hBill">$0.00</span>
+          </div>
+          <div class="hb-row">
+            <span>The Entity's Cut</span>
+            <span id="hEntityCut" class="flicker">$0.00</span>
+          </div>
+          <div class="hb-row hb-total">
+            <span>Your Debt</span>
+            <span id="hYourDebt">$0.00</span>
+          </div>
+        </div>
+
+        <!-- Typing danger zone -->
+        <div class="horror-input-area" id="horrorInputArea">
+          <div class="danger-bar-wrap">
+            <div class="danger-label" id="dangerLabel">RESPOND OR IT GETS CLOSER</div>
+            <div class="danger-bar"><div id="dangerFill" class="danger-fill"></div></div>
+          </div>
+          <div class="horror-input-row">
+            <input id="horrorInput" type="text" class="horror-input" placeholder="Type your response..." autocomplete="off"/>
+            <button id="horrorSend" class="horror-send-btn">SEND</button>
+          </div>
+        </div>
+
+        <!-- Proximity meter -->
+        <div class="proximity-wrap">
+          <div class="prox-label">PROXIMITY</div>
+          <div class="prox-track">
+            <div id="entityMarker" class="entity-marker">👁️</div>
+            <div class="you-marker">YOU</div>
+          </div>
+        </div>
+
+        <button class="escape-btn" id="escapeBtn">[ ESCAPE THIS PLACE ]</button>
+      </div>
+    </div>
+  </div>
+
+  <script src="javascript.js"></script>
+</body>
+</html>
