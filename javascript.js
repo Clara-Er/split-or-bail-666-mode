@@ -73,7 +73,7 @@ function calculateEqual() {
 $('billAmount').addEventListener('input', () => {
   state.bill = parseFloat($('billAmount').value) || 0;
   calculateEqual();
-  if ($('billAmount').value === '666') triggerHorror(state.bill);
+  if ($('billAmount').value === '666') triggerHorror();
 });
 
 $('decreasePeople').addEventListener('click', () => {
@@ -208,7 +208,7 @@ function addFairItem(card, person) {
     updatePersonSubtotal(card, person);
     calculateFair();
     // horror trigger on 666 in fair mode too
-    if (e.target.value === '666') triggerHorror(666);
+    if (e.target.value === '666') triggerHorror();
   });
 
   row.querySelector('.remove-btn').addEventListener('click', () => {
@@ -342,89 +342,68 @@ calculateEqual();
 
 
 /* ══════════════════════════════════════════
-   HORROR MODE
+   HORROR MODE — MonkeyType Typing Game
 ══════════════════════════════════════════ */
 
-// ─── ENTITY DIALOGUE ─────────────────────
-// Phase 1 — cold, observational
-const PHASE1 = [
-  "You summoned me with that number. How... delightful.",
-  "I have been waiting at this table for a very long time.",
-  "The bill is ₹666. That was not a coincidence. Nothing ever is.",
-  "I'll take half. The rest — split among the living.",
-  "I can see your screen. I can see your hands. Keep typing.",
-  "Everyone who has typed that number... has met me eventually.",
-  "The others at your table cannot see me. But I see them all.",
+// ─── ROUND SENTENCES (10 rounds, escalating difficulty) ─────────────
+const HORROR_ROUNDS = [
+  // Round 1 — short, chill
+  { text: "pay what you owe", time: 8 },
+  // Round 2
+  { text: "I have been at this table before.", time: 9 },
+  // Round 3
+  { text: "The bill was ₹666. That was not a coincidence.", time: 11 },
+  // Round 4 — punctuation enters
+  { text: "Don't stop typing. Don't look behind you. Keep going.", time: 13 },
+  // Round 5 — numbers
+  { text: "You owe me ₹333.00. Pay it. Now. Not later.", time: 13 },
+  // Round 6 — longer
+  { text: "Everyone who has typed that number has eventually met me.", time: 14 },
+  // Round 7 — mixed
+  { text: "The chair behind you just shifted. 3 inches. I counted.", time: 15 },
+  // Round 8 — long + punctuation
+  { text: "I have been splitting bills since 1887. You are not special.", time: 15 },
+  // Round 9 — brutal
+  { text: "One of you is lying about what they ordered. I know who. Do you?", time: 16 },
+  // Round 10 — hardest
+  { text: "You cannot escape the debt. ₹666 was just the beginning — I always collect.", time: 17 },
 ];
 
-// Phase 2 — agitated, pressing
-const PHASE2 = [
-  "You are slowing down. That is a mistake.",
-  "I moved an inch closer while you hesitated just now. Did you feel it?",
-  "Every second of silence is a second I don't need to ask politely.",
-  "The chair behind you just shifted. Don't look.",
-  "I have been splitting bills since before this city had electricity.",
-  "Your typing is getting erratic. Interesting. Fear does that.",
-  "I am not here for the money. I am here because you invited me.",
-];
-
-// Phase 3 — intimate, terrifying
-const PHASE3 = [
-  "I can smell your dinner from here. Curious choice.",
-  "The person to your left is about to check their phone. Watch.",
-  "You keep looking at the screen but not at what's behind it.",
-  "One of you is lying about what they ordered. I already know who.",
-  "Your share is calculated. The math isn't what concerns me right now.",
-  "You are the only one at this table who can hear me. How special.",
-  "I don't want your money. I want you to sit with the discomfort a little longer.",
-];
-
-// Phase 4 — final approach, unhinged
-const PHASE4 = [
-  "I am at the edge of your table now. I can read your screen.",
-  "Stop. Breathe. Then type. In that order.",
-  "You should not have looked away just now.",
-  "The candle on your table — did it just flicker? Yes. That was me.",
-  "I know your name. I've always known your name.",
-  "You are typing faster now. Good. But fast isn't fast enough anymore.",
-];
-
-const RESPONSES = [
-  "Adequate. But slower than last time.",
-  "I see. Continue.",
-  "Your words mean little here. Only speed matters now.",
-  "Noted. I am still watching.",
-  "...acceptable.",
-  "Interesting. I will remember that.",
-  "You're faster than the last one who sat here.",
-  "The last person who hesitated at this table — I don't see them anymore.",
-  "Your heartbeat is louder than your typing.",
-  "Three inches closer. Answer faster next time.",
-  "That response was weak. Weak responses have consequences.",
-  "I have sat at this table for 47 years. Entertain me.",
-  "Good. You may live through dessert.",
-  "Mmm. Yes. I'll allow it... this time.",
+const ENTITY_INTROS = [
+  "Prove you're worth my time.",
+  "I've been waiting. Type.",
+  "The debt grows with every second.",
+  "Show me your hands can keep up.",
+  "Faster this time. I'm getting closer.",
+  "You've survived this far. Surprising.",
+  "My patience runs thin. As does yours.",
+  "I can feel you hesitating. Don't.",
+  "Almost there. Almost mine.",
+  "Last chance. Make it count.",
 ];
 
 // ─── HORROR STATE ────────────────────────
-let hS = {
+let hG = {
   active: false,
-  proximity: 4,      // 4 = far, 95 = touching you
-  phase: 1,          // 1-4
-  dialoguePools: [], // shuffled pool from current phase
-  dlgIdx: 0,
-  timerMax: 7000,
-  timerLeft: 7000,
+  round: 0,         // 0-indexed
+  lives: 3,
+  proximity: 5,     // 5–95
+  roundErrors: 0,   // errors this round (max 3 before life lost)
+  totalErrors: 0,
+  totalChars: 0,
+  roundStartTime: 0,
+  wpmSamples: [],
   timerInterval: null,
+  timerLeft: 0,
   gameOver: false,
-  lives: 3,          // 3 strikes = definitive game over
   audioCtx: null,
   oscillator: null,
+  gainNode: null,
 };
 
 // ─── TRIGGER ─────────────────────────────
-function triggerHorror(bill) {
-  if (hS.active) return;
+function triggerHorror() {
+  if (hG.active) return;
 
   document.body.classList.add('shaking');
   setTimeout(() => document.body.classList.remove('shaking'), 600);
@@ -436,370 +415,333 @@ function triggerHorror(bill) {
     ha.classList.add('entering');
     setTimeout(() => ha.classList.remove('entering'), 1100);
 
-    // Init state
-    hS.active    = true;
-    hS.proximity = 4;
-    hS.phase     = 1;
-    hS.dlgIdx    = 0;
-    hS.gameOver  = false;
-    hS.lives     = 3;
-    hS.timerMax  = 7000;
-    hS.dialoguePools = shuffle([...PHASE1]);
+    hG = { ...hG, active: true, round: 0, lives: 3, proximity: 5,
+            roundErrors: 0, totalErrors: 0, totalChars: 0,
+            wpmSamples: [], gameOver: false };
 
-    // Bill display
-    const pp = (666 / Math.max(state.people, state.fairPersons.length || 1, 1)).toFixed(2);
-    $('hBill').textContent      = '₹666.00';
-    $('hEntityCut').textContent = '₹333.00';
-    $('hYourDebt').textContent  = `₹${pp}`;
+    $('winScreen').classList.add('hidden');
+    $('horrorCard').classList.remove('hidden');
 
-    $('horrorChat').innerHTML = '';
-    updateProximity(4);
-    updatePips(0);
-    $('dangerFill').style.width = '0%';
-    $('horrorInput').disabled = false;
-    $('horrorSend').disabled  = false;
-
-    // Start ambient sound
+    updateHUD();
+    updateProximity(5);
     startAmbientSound();
-
-    // Vignette on
     $('vignetteLayer').classList.add('danger');
 
-    // First message after short pause
-    setTimeout(() => {
-      typeEntityMsg(nextDialogue(), () => startTimer());
-    }, 900);
+    setTimeout(() => startRound(), 900);
   }, 700);
 }
 
-// ─── DIALOGUE ────────────────────────────
-function nextDialogue() {
-  if (hS.dlgIdx >= hS.dialoguePools.length) {
-    hS.dlgIdx = 0;
-  }
-  const line = hS.dialoguePools[hS.dlgIdx++];
-  return line;
+// ─── ROUND LOGIC ─────────────────────────
+function startRound() {
+  if (hG.gameOver || hG.round >= 10) return;
+
+  const rd = HORROR_ROUNDS[hG.round];
+  hG.roundErrors = 0;
+  hG.roundStartTime = Date.now();
+
+  // Entity intro message
+  const intro = ENTITY_INTROS[hG.round] || "Type.";
+  $('entityMsgText').textContent = intro;
+
+  // Render target chars
+  renderTarget(rd.text);
+
+  // Reset input
+  const inp = $('tzInput');
+  inp.value = '';
+  inp.disabled = false;
+  inp.focus();
+
+  // Reset mistake pips
+  renderMistakePips(0);
+
+  updateHUD();
+
+  // Start timer
+  startRoundTimer(rd.time);
 }
 
-function setPhase(p) {
-  if (p === hS.phase) return;
-  hS.phase = p;
-  const pools = { 1: PHASE1, 2: PHASE2, 3: PHASE3, 4: PHASE4 };
-  hS.dialoguePools = shuffle([...(pools[p] || PHASE4)]);
-  hS.dlgIdx = 0;
-
-  // Visual escalation
-  const v = $('vignetteLayer');
-  if (p >= 3) v.classList.add('critical');
-
-  // Corruption layer on phase 3+
-  if (p >= 3) {
-    $('corruptionLayer').classList.add('active');
-    setTimeout(() => $('corruptionLayer').classList.remove('active'), 4000);
-  }
-
-  // Sound escalation
-  if (hS.audioCtx && hS.oscillator) {
-    hS.oscillator.frequency.linearRampToValueAtTime(40 + p * 12, hS.audioCtx.currentTime + 1);
+function renderTarget(text) {
+  const el = $('tzTarget');
+  el.innerHTML = '';
+  for (const ch of text) {
+    const span = document.createElement('span');
+    span.textContent = ch;
+    span.className = 'tc';
+    el.appendChild(span);
   }
 }
 
-// ─── TYPING EFFECT ───────────────────────
-function typeEntityMsg(text, onDone) {
-  const chat = $('horrorChat');
-  const msg  = document.createElement('div');
-  msg.className = 'chat-msg entity-msg';
-  msg.innerHTML = `<span class="entity-label">ENTITY_666</span><p></p>`;
-  chat.appendChild(msg);
-  chat.scrollTop = chat.scrollHeight;
-
-  const p = msg.querySelector('p');
-  let i = 0;
-
-  // Vary typing speed by phase — faster = more agitated
-  const spd = Math.max(18, 42 - hS.phase * 6);
-
-  const t = setInterval(() => {
-    p.textContent += text[i++];
-    chat.scrollTop = chat.scrollHeight;
-    if (i >= text.length) {
-      clearInterval(t);
-      if (onDone) setTimeout(onDone, 280);
-    }
-  }, spd);
-}
-
-// ─── TIMER ───────────────────────────────
-function startTimer() {
-  if (hS.gameOver) return;
-  hS.timerLeft = hS.timerMax;
-
-  clearInterval(hS.timerInterval);
-  $('dangerFill').style.background = 'linear-gradient(90deg, #ff6b00, var(--horror-red))';
-  $('dangerFill').style.width = '0%';
-
-  hS.timerInterval = setInterval(() => {
-    if (hS.gameOver) { clearInterval(hS.timerInterval); return; }
-
-    hS.timerLeft -= 80;
-    const pct = Math.min(100, ((hS.timerMax - hS.timerLeft) / hS.timerMax) * 100);
-    $('dangerFill').style.width = pct + '%';
-
-    if (pct > 60) $('dangerFill').style.background = 'linear-gradient(90deg, #ff2200, #ff0000)';
-    if (pct > 85) {
-      // warning flash
-      $('horrorChat').classList.add('warning-flash');
-      setTimeout(() => $('horrorChat').classList.remove('warning-flash'), 300);
-    }
-
-    if (hS.timerLeft <= 0) {
-      clearInterval(hS.timerInterval);
-      entityApproach();
-    }
-  }, 80);
-}
-
-// ─── APPROACH ────────────────────────────
-function entityApproach() {
-  const step = 16 + hS.phase * 5; // bigger jumps in later phases
-  hS.proximity = Math.min(hS.proximity + step, 95);
-  updateProximity(hS.proximity);
-
-  // Flash + shake
-  const ha = $('horrorApp');
-  ha.classList.add('flash-danger');
-  setTimeout(() => ha.classList.remove('flash-danger'), 1000);
-
-  const hc = $('horrorCard');
-  hc.classList.add('shaking');
-  setTimeout(() => hc.classList.remove('shaking'), 1000);
-
-  document.body.classList.add('shaking');
-  setTimeout(() => document.body.classList.remove('shaking'), 500);
-
-  // Corruption glitch burst
-  $('corruptionLayer').classList.add('active');
-  setTimeout(() => $('corruptionLayer').classList.remove('active'), 600);
-
-  // Update phase by proximity
-  if (hS.proximity > 70) setPhase(4);
-  else if (hS.proximity > 45) setPhase(3);
-  else if (hS.proximity > 22) setPhase(2);
-
-  // Update pips
-  updatePips(hS.proximity);
-
-  if (hS.proximity >= 95) {
-    runGameOver();
-    return;
-  }
-
-  // Entity reacts to approach
-  const approachLines = [
-    "...",
-    "You kept me waiting.",
-    "Silence. Interesting.",
-    "I moved. Did you notice?",
-    "That hesitation cost you.",
-  ];
-  const line = approachLines[Math.floor(Math.random() * approachLines.length)];
-  typeEntityMsg(line, () => {
-    setTimeout(() => typeEntityMsg(nextDialogue(), () => startTimer()), 400);
+function renderMistakePips(count) {
+  const pips = $('mistakePips').querySelectorAll('.mp');
+  pips.forEach((p, i) => {
+    p.classList.remove('active');
+    if (i < count) p.classList.add('active');
   });
 }
 
-// ─── GAME OVER ───────────────────────────
-function runGameOver() {
-  hS.gameOver = true;
-  hS.lives    = Math.max(0, hS.lives - 1);
-  clearInterval(hS.timerInterval);
+// ─── TYPING INPUT ────────────────────────
+$('tzInput').addEventListener('input', handleTyping);
 
-  $('horrorInput').disabled = true;
-  $('horrorSend').disabled  = true;
+function handleTyping(e) {
+  if (!hG.active || hG.gameOver) return;
 
-  // Full corruption
-  $('corruptionLayer').classList.add('active');
-  $('vignetteLayer').classList.add('critical');
+  const inp = $('tzInput');
+  const typed = inp.value;
+  const target = HORROR_ROUNDS[hG.round].text;
+  const spans = $('tzTarget').querySelectorAll('.tc');
 
-  document.body.classList.add('shaking');
+  let errors = 0;
 
-  const gameOverLines = [
-    "You were too slow.<br><br>The bill is mine now.<br><br>Your debt is not measured in rupees.<br><br>I'll see you at the next dinner.",
-    "Silence was your answer. I accepted it.<br><br>You owe me something I haven't named yet.<br><br>I'll collect it when the time is right.",
-    "There is no escape button in the real world.<br><br>Only at this table.<br><br>I'll be here when you come back.",
-  ];
-  const msg = gameOverLines[Math.floor(Math.random() * gameOverLines.length)];
-
-  setTimeout(() => {
-    typeEntityMsg(msg);
-  }, 600);
-
-  // Reset after 5s and come back angrier
-  setTimeout(() => {
-    $('corruptionLayer').classList.remove('active');
-    hS.gameOver  = false;
-    hS.proximity = 4;
-    hS.timerMax  = Math.max(hS.timerMax - 800, 2200); // gets shorter each time
-    updateProximity(4);
-    $('dangerFill').style.width = '0%';
-    $('dangerFill').style.background = 'linear-gradient(90deg, #ff6b00, var(--horror-red))';
-    $('horrorInput').disabled = false;
-    $('horrorSend').disabled  = false;
-
-    if (hS.lives <= 0) {
-      // Truly final
-      typeEntityMsg("...You keep coming back.<br>Good.<br>So do I.", () => {
-        hS.lives = 3;
-        hS.timerMax = 7000;
-        hS.phase = 1;
-        hS.dialoguePools = shuffle([...PHASE1]);
-        setTimeout(() => startTimer(), 1000);
-      });
+  for (let i = 0; i < spans.length; i++) {
+    const s = spans[i];
+    if (i >= typed.length) {
+      s.className = 'tc'; // untyped
+    } else if (typed[i] === target[i]) {
+      s.className = 'tc correct';
     } else {
-      setPhase(Math.min(hS.phase + 1, 4));
-      typeEntityMsg("I'll give you one more chance. Don't waste it.", () => startTimer());
+      s.className = 'tc wrong';
+      errors++;
     }
-  }, 5500);
-}
-
-// ─── USER TYPES ──────────────────────────
-$('horrorInput').addEventListener('keydown', e => {
-  if (!hS.active || hS.gameOver) return;
-
-  // Typing resets timer
-  hS.timerLeft = hS.timerMax;
-  $('dangerFill').style.width = '0%';
-  $('dangerFill').style.background = 'linear-gradient(90deg, #ff6b00, var(--horror-red))';
-
-  // Typing pushes entity back slightly
-  if (hS.proximity > 4) {
-    hS.proximity = Math.max(hS.proximity - 2, 4);
-    updateProximity(hS.proximity);
   }
 
-  if (e.key === 'Enter') sendHorrorMsg();
-});
+  hG.totalChars = Math.max(hG.totalChars, typed.length);
 
-$('horrorSend').addEventListener('click', sendHorrorMsg);
+  // Track round errors (wrong chars typed)
+  if (errors > hG.roundErrors) {
+    const newErrs = errors - hG.roundErrors;
+    hG.roundErrors = errors;
+    hG.totalErrors += newErrs;
+    renderMistakePips(Math.min(errors, 3));
 
-function sendHorrorMsg() {
-  if (!hS.active || hS.gameOver) return;
-  const input = $('horrorInput');
-  const text  = input.value.trim();
-  if (!text) return;
-  input.value = '';
+    // Flicker on error
+    $('tzTarget').classList.add('error-flash');
+    setTimeout(() => $('tzTarget').classList.remove('error-flash'), 200);
 
-  // User message
-  const chat = $('horrorChat');
-  const msg  = document.createElement('div');
-  msg.className = 'chat-msg user-msg';
-  msg.innerHTML = `<span class="user-label">YOU</span><p>${escHtml(text)}</p>`;
-  chat.appendChild(msg);
-  chat.scrollTop = chat.scrollHeight;
+    // Push entity closer on errors
+    hG.proximity = Math.min(hG.proximity + 6, 95);
+    updateProximity(hG.proximity);
 
-  // Stop timer, pull entity back on good response
-  clearInterval(hS.timerInterval);
-  $('dangerFill').style.width = '0%';
-  hS.proximity = Math.max(hS.proximity - 14, 4);
-  updateProximity(hS.proximity);
+    if (errors >= 3) {
+      loseLife();
+      return;
+    }
+  }
 
-  // Entity responds then asks again
-  const resp = RESPONSES[Math.floor(Math.random() * RESPONSES.length)];
-  setTimeout(() => {
-    typeEntityMsg(resp, () => {
-      setTimeout(() => typeEntityMsg(nextDialogue(), () => startTimer()), 500);
-    });
-  }, 500);
+  // Live WPM
+  const elapsed = (Date.now() - hG.roundStartTime) / 60000;
+  if (elapsed > 0.05) {
+    const wpm = Math.round((typed.length / 5) / elapsed);
+    $('hudWpm').textContent = wpm;
+    // Good speed = entity retreats
+    if (wpm > 40 && hG.proximity > 5) {
+      hG.proximity = Math.max(hG.proximity - 1, 5);
+      updateProximity(hG.proximity);
+    }
+  }
+
+  // Accuracy
+  const acc = hG.totalChars > 0
+    ? Math.round(((hG.totalChars - hG.totalErrors) / hG.totalChars) * 100)
+    : 100;
+  $('hudAcc').textContent = acc + '%';
+
+  // Check completion — typed full length and all correct
+  if (typed.length >= target.length && errors === 0) {
+    roundComplete();
+  }
 }
 
-// ─── PROXIMITY HELPERS ───────────────────
+// ─── ROUND TIMER ─────────────────────────
+function startRoundTimer(seconds) {
+  clearInterval(hG.timerInterval);
+  hG.timerLeft = seconds;
+  $('tzTimerFill').style.width = '0%';
+  $('tzTimerFill').style.background = 'var(--horror-red)';
+  $('tzTimerText').textContent = seconds + 's';
+
+  hG.timerInterval = setInterval(() => {
+    if (hG.gameOver) { clearInterval(hG.timerInterval); return; }
+    hG.timerLeft -= 0.1;
+    const pct = Math.max(0, 100 - (hG.timerLeft / HORROR_ROUNDS[hG.round].time) * 100);
+    $('tzTimerFill').style.width = pct + '%';
+    $('tzTimerText').textContent = Math.max(0, hG.timerLeft).toFixed(1) + 's';
+
+    if (pct > 70) $('tzTimerFill').style.background = '#ff2200';
+
+    if (hG.timerLeft <= 0) {
+      clearInterval(hG.timerInterval);
+      loseLife();
+    }
+  }, 100);
+}
+
+// ─── LIFE / GAME OVER ────────────────────
+function loseLife() {
+  if (hG.gameOver) return;
+  clearInterval(hG.timerInterval);
+  $('tzInput').disabled = true;
+  hG.lives = Math.max(0, hG.lives - 1);
+
+  // Push entity forward hard
+  hG.proximity = Math.min(hG.proximity + 22, 95);
+  updateProximity(hG.proximity);
+
+  updateHUD();
+
+  if (hG.lives <= 0) {
+    triggerGameOver();
+  } else {
+    // Shake, warn, then next round same or retry
+    $('horrorCard').classList.add('shaking');
+    setTimeout(() => $('horrorCard').classList.remove('shaking'), 600);
+    $('entityMsgText').textContent = ["You almost made it.", "Slower hands, slower fate.", "One less chance. Keep going."][hG.lives - 1] || "Keep going.";
+    setTimeout(() => { hG.round++; if (hG.round < 10) startRound(); else triggerWin(); }, 1800);
+  }
+}
+
+function triggerGameOver() {
+  hG.gameOver = true;
+  hG.active = false;
+  clearInterval(hG.timerInterval);
+
+  // Jumpscare
+  playScreech();
+  const js = $('jumpscare');
+  js.classList.remove('hidden');
+  document.body.classList.add('shaking');
+
+  setTimeout(() => {
+    js.classList.add('hidden');
+    document.body.classList.remove('shaking');
+    $('corruptionLayer').classList.add('active');
+    $('entityMsgText').textContent = "I'll see you at the next dinner.";
+    $('tzInput').disabled = true;
+    // Show restart option after 2s
+    setTimeout(() => {
+      $('entityMsgText').textContent = "Game Over. But I never truly leave. [ ESC to bail ]";
+      $('corruptionLayer').classList.remove('active');
+    }, 2500);
+  }, 1800);
+}
+
+function roundComplete() {
+  clearInterval(hG.timerInterval);
+  $('tzInput').disabled = true;
+
+  // WPM for this round
+  const elapsed = (Date.now() - hG.roundStartTime) / 60000;
+  const wpm = Math.round((HORROR_ROUNDS[hG.round].text.length / 5) / elapsed);
+  hG.wpmSamples.push(wpm);
+
+  // Entity retreats on success
+  hG.proximity = Math.max(hG.proximity - 15, 5);
+  updateProximity(hG.proximity);
+
+  const msgs = [
+    "...adequate.", "Acceptable. Barely.", "You survived this round.",
+    "Faster than expected.", "I retreat. For now.", "Not bad. Not safe either.",
+    "Speed noted. Don't get comfortable.", "You live another round.",
+    "Almost impressive.", "The entity steps back."
+  ];
+  $('entityMsgText').textContent = msgs[hG.round] || "Continue.";
+
+  hG.round++;
+  setTimeout(() => {
+    if (hG.round >= 10) triggerWin();
+    else startRound();
+  }, 1600);
+}
+
+// ─── WIN ─────────────────────────────────
+function triggerWin() {
+  hG.active = false;
+  clearInterval(hG.timerInterval);
+  stopAmbientSound();
+
+  $('horrorCard').classList.add('hidden');
+  const ws = $('winScreen');
+  ws.classList.remove('hidden');
+
+  const avgWpm = hG.wpmSamples.length
+    ? Math.round(hG.wpmSamples.reduce((a,b) => a+b, 0) / hG.wpmSamples.length)
+    : 0;
+  const acc = hG.totalChars > 0
+    ? Math.round(((hG.totalChars - hG.totalErrors) / hG.totalChars) * 100)
+    : 100;
+
+  $('winStats').innerHTML = `
+    <div class="ws-row"><span>Rounds survived</span><strong>10 / 10</strong></div>
+    <div class="ws-row"><span>Lives remaining</span><strong>${'🕯'.repeat(hG.lives)}${'⬛'.repeat(3 - hG.lives)}</strong></div>
+    <div class="ws-row"><span>Average WPM</span><strong>${avgWpm}</strong></div>
+    <div class="ws-row"><span>Accuracy</span><strong>${acc}%</strong></div>
+    <div class="ws-row"><span>Total errors</span><strong>${hG.totalErrors}</strong></div>
+  `;
+
+  $('winExitBtn').addEventListener('click', escapeHorror, { once: true });
+}
+
+// ─── HUD ─────────────────────────────────
+function updateHUD() {
+  $('hudRound').textContent = `${hG.round + 1} / 10`;
+  const candles = ['🕯','🕯','🕯'];
+  for (let i = hG.lives; i < 3; i++) candles[i] = '🪦';
+  $('hudLives').textContent = candles.join('');
+}
+
+// ─── PROXIMITY ───────────────────────────
 function updateProximity(val) {
   const leftPct = 4 + (val / 100) * 76;
   $('entityMarker').style.left = leftPct + '%';
-  $('entityStatusText').textContent = proxText(val);
   $('proxDesc').textContent = proxDesc(val);
-  updatePips(val);
-}
-
-function proxText(v) {
-  if (v < 18) return "The Entity is watching from afar...";
-  if (v < 32) return "The Entity has moved closer.";
-  if (v < 50) return "The Entity is at your table.";
-  if (v < 68) return "The Entity is directly behind you.";
-  if (v < 82) return "The Entity is breathing on your neck.";
-  if (v < 93) return "The Entity is inches from your face.";
-  return "THE ENTITY IS HERE.";
 }
 
 function proxDesc(v) {
-  if (v < 18) return "Safe distance maintained.";
-  if (v < 32) return "Keep responding. Don't slow down.";
+  if (v < 20) return "Safe distance maintained.";
+  if (v < 35) return "Keep responding. Don't slow down.";
   if (v < 50) return "Type. Don't stop typing.";
-  if (v < 68) return "Do not look behind you.";
-  if (v < 82) return "It can read what you're typing.";
+  if (v < 65) return "Do not look behind you.";
+  if (v < 80) return "It can read what you're typing.";
   return "Too late to run.";
 }
 
-function updatePips(proximity) {
-  const pips = $('wlPips').querySelectorAll('.wl-pip');
-  const filled = Math.round((proximity / 95) * 5);
-  pips.forEach((pip, i) => {
-    pip.classList.remove('lit', 'lit-orange');
-    if (i < filled) {
-      pip.classList.add(i < 3 ? 'lit-orange' : 'lit');
-    }
-  });
-}
-
-// ─── AMBIENT SOUND (Web Audio API) ───────
+// ─── AUDIO ───────────────────────────────
 function startAmbientSound() {
   try {
-    hS.audioCtx  = new (window.AudioContext || window.webkitAudioContext)();
-    const ctx    = hS.audioCtx;
-
-    // Sub-bass rumble
-    const osc    = ctx.createOscillator();
-    const gain   = ctx.createGain();
-    osc.type     = 'sine';
-    osc.frequency.setValueAtTime(40, ctx.currentTime);
+    hG.audioCtx = new (window.AudioContext || window.webkitAudioContext)();
+    const ctx = hG.audioCtx;
+    const osc = ctx.createOscillator();
+    const gain = ctx.createGain();
+    osc.type = 'sine';
+    osc.frequency.setValueAtTime(38, ctx.currentTime);
     gain.gain.setValueAtTime(0, ctx.currentTime);
     gain.gain.linearRampToValueAtTime(0.04, ctx.currentTime + 2);
-    osc.connect(gain);
-    gain.connect(ctx.destination);
+    osc.connect(gain); gain.connect(ctx.destination);
     osc.start();
-    hS.oscillator = osc;
-    hS.gainNode   = gain;
+    hG.oscillator = osc; hG.gainNode = gain;
+  } catch(e) {}
+}
 
-    // High-pitched creak (once)
-    setTimeout(() => {
-      if (!hS.audioCtx) return;
-      const creak   = ctx.createOscillator();
-      const creakG  = ctx.createGain();
-      creak.type    = 'sawtooth';
-      creak.frequency.setValueAtTime(800, ctx.currentTime);
-      creak.frequency.linearRampToValueAtTime(200, ctx.currentTime + 1.2);
-      creakG.gain.setValueAtTime(0.03, ctx.currentTime);
-      creakG.gain.linearRampToValueAtTime(0, ctx.currentTime + 1.2);
-      creak.connect(creakG);
-      creakG.connect(ctx.destination);
-      creak.start();
-      creak.stop(ctx.currentTime + 1.3);
-    }, 1500);
-
-  } catch(e) {
-    // Audio not available — silent horror
-  }
+function playScreech() {
+  try {
+    const ctx = new (window.AudioContext || window.webkitAudioContext)();
+    const buf = ctx.createBuffer(1, ctx.sampleRate * 0.8, ctx.sampleRate);
+    const data = buf.getChannelData(0);
+    for (let i = 0; i < data.length; i++) data[i] = (Math.random() * 2 - 1) * (1 - i / data.length);
+    const src = ctx.createBufferSource();
+    const gain = ctx.createGain();
+    src.buffer = buf;
+    gain.gain.setValueAtTime(0.6, ctx.currentTime);
+    src.connect(gain); gain.connect(ctx.destination);
+    src.start();
+  } catch(e) {}
 }
 
 function stopAmbientSound() {
-  if (hS.gainNode) {
-    hS.gainNode.gain.linearRampToValueAtTime(0, hS.audioCtx.currentTime + 0.5);
+  if (hG.gainNode && hG.audioCtx) {
+    hG.gainNode.gain.linearRampToValueAtTime(0, hG.audioCtx.currentTime + 0.5);
+    setTimeout(() => { if (hG.audioCtx) { hG.audioCtx.close(); hG.audioCtx = null; } }, 600);
   }
-  setTimeout(() => {
-    if (hS.audioCtx) { hS.audioCtx.close(); hS.audioCtx = null; }
-    hS.oscillator = null;
-    hS.gainNode   = null;
-  }, 600);
 }
 
 // ─── ESCAPE ──────────────────────────────
@@ -809,26 +751,24 @@ document.addEventListener('keydown', e => {
 });
 
 function escapeHorror() {
-  clearInterval(hS.timerInterval);
-  hS.active   = false;
-  hS.gameOver = false;
+  clearInterval(hG.timerInterval);
+  hG.active = false; hG.gameOver = false;
   stopAmbientSound();
-
   const ha = $('horrorApp');
-  document.body.classList.add('shaking');
   ha.style.filter = 'brightness(5) contrast(4)';
   setTimeout(() => { ha.style.filter = 'brightness(0)'; }, 150);
   setTimeout(() => {
     ha.style.filter = '';
     ha.classList.add('hidden');
     $('app').classList.remove('hidden');
-    $('vignetteLayer').classList.remove('danger', 'critical');
+    $('vignetteLayer').classList.remove('danger','critical');
     $('corruptionLayer').classList.remove('active');
     $('billAmount').value = '';
-    $('dangerFill').style.width = '0%';
     state.bill = 0;
     calculateEqual();
     document.body.classList.remove('shaking');
+    $('horrorCard').classList.remove('hidden');
+    $('winScreen').classList.add('hidden');
   }, 350);
 }
 
@@ -836,11 +776,393 @@ function escapeHorror() {
 function escHtml(s) {
   return s.replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;');
 }
-
 function shuffle(arr) {
   for (let i = arr.length - 1; i > 0; i--) {
     const j = Math.floor(Math.random() * (i + 1));
     [arr[i], arr[j]] = [arr[j], arr[i]];
   }
   return arr;
+}
+
+/* ══════════════════════════════════════════
+   TRIP TRACKER
+══════════════════════════════════════════ */
+
+// ─── STATE ───────────────────────────────
+const trip = {
+  people: [],    // [{ id, name }]
+  expenses: [],  // [{ id, desc, amount, payerId, splitAmong: [ids] }]
+};
+
+let _pid = 0;  // person id counter
+let _eid = 0;  // expense id counter
+
+// ─── MODE: add trip tab ───────────────────
+// Patch setMode to handle 'trip'
+const _origSetMode = typeof setMode === 'function' ? setMode : null;
+
+document.getElementById('modeTripBtn').addEventListener('click', () => activateTripMode());
+
+function activateTripMode() {
+  // deactivate other modes visually
+  document.getElementById('modeEqualBtn').classList.remove('active');
+  document.getElementById('modeFairBtn').classList.remove('active');
+  document.getElementById('modeTripBtn').classList.add('active');
+  document.getElementById('modeDesc').textContent = 'Track shared trip expenses. Settle with minimum transactions.';
+
+  document.getElementById('equalSection').classList.add('hidden');
+  document.getElementById('fairSection').classList.add('hidden');
+  document.getElementById('equalResult').classList.add('hidden');
+  document.getElementById('fairResult').classList.add('hidden');
+  document.querySelector('.card-grid').style.display = 'none';
+
+  document.getElementById('tripSection').classList.remove('hidden');
+  renderTripPeople();
+  renderExpenses();
+}
+
+// Patch existing mode buttons to hide trip section
+['modeEqualBtn','modeFairBtn'].forEach(id => {
+  document.getElementById(id).addEventListener('click', () => {
+    document.getElementById('tripSection').classList.add('hidden');
+    document.querySelector('.card-grid').style.display = '';
+    document.getElementById('modeTripBtn').classList.remove('active');
+  });
+});
+
+// ─── PEOPLE ──────────────────────────────
+document.getElementById('addTripPersonBtn').addEventListener('click', () => {
+  if (trip.people.length >= 8) return;
+  addTripPerson('');
+});
+
+function addTripPerson(name) {
+  const id = ++_pid;
+  trip.people.push({ id, name });
+  renderTripPeople();
+  refreshAllExpenseSplitChips();
+}
+
+function removeTripPerson(id) {
+  trip.people = trip.people.filter(p => p.id !== id);
+  // Remove from all split-among arrays
+  trip.expenses.forEach(e => {
+    e.splitAmong = e.splitAmong.filter(pid => pid !== id);
+    if (e.payerId === id) e.payerId = null;
+  });
+  renderTripPeople();
+  renderExpenses();
+}
+
+function renderTripPeople() {
+  const grid = document.getElementById('tripPeopleGrid');
+  grid.innerHTML = '';
+  trip.people.forEach(p => {
+    const chip = document.createElement('div');
+    chip.className = 'trip-person-chip';
+    chip.innerHTML = `
+      <input type="text" placeholder="Name" value="${escHtmlT(p.name)}" maxlength="18"/>
+      <button class="remove-btn" title="Remove">✕</button>
+    `;
+    chip.querySelector('input').addEventListener('input', e => {
+      p.name = e.target.value;
+      refreshAllExpenseSplitChips();
+    });
+    chip.querySelector('.remove-btn').addEventListener('click', () => removeTripPerson(p.id));
+    grid.appendChild(chip);
+  });
+
+  const btn = document.getElementById('addTripPersonBtn');
+  btn.style.display = trip.people.length >= 8 ? 'none' : '';
+}
+
+// ─── EXPENSES ────────────────────────────
+document.getElementById('addExpenseBtn').addEventListener('click', () => {
+  if (trip.people.length < 2) {
+    alert('Add at least 2 people first.');
+    return;
+  }
+  const id = ++_eid;
+  trip.expenses.push({
+    id,
+    desc: '',
+    amount: 0,
+    payerId: trip.people[0]?.id || null,
+    splitAmong: trip.people.map(p => p.id),  // everyone by default
+  });
+  renderExpenses();
+});
+
+function removeExpense(id) {
+  trip.expenses = trip.expenses.filter(e => e.id !== id);
+  renderExpenses();
+}
+
+function renderExpenses() {
+  const list = document.getElementById('expenseList');
+  const empty = document.getElementById('expenseEmpty');
+  list.innerHTML = '';
+
+  if (trip.expenses.length === 0) {
+    list.appendChild(empty);
+    empty.classList.remove('hidden');
+    return;
+  }
+
+  trip.expenses.forEach(exp => {
+    const card = document.createElement('div');
+    card.className = 'expense-card';
+
+    // Build payer options
+    const payerOptions = trip.people.map(p =>
+      `<option value="${p.id}" ${exp.payerId === p.id ? 'selected' : ''}>${escHtmlT(p.name || 'Person')}</option>`
+    ).join('');
+
+    card.innerHTML = `
+      <div class="expense-card-top">
+        <input type="text" placeholder="What for? (e.g. Hotel)" class="exp-desc" value="${escHtmlT(exp.desc)}" maxlength="40"/>
+        <input type="number" placeholder="₹ Amount" class="exp-amount" value="${exp.amount || ''}" min="0" step="0.01"/>
+        <select class="exp-payer">
+          <option value="">Who paid?</option>
+          ${payerOptions}
+        </select>
+        <button class="expense-remove-btn">✕</button>
+      </div>
+      <div class="split-among-wrap">
+        <div class="split-among-label">Split among:</div>
+        <div class="split-among-chips"></div>
+      </div>
+    `;
+
+    // Description
+    card.querySelector('.exp-desc').addEventListener('input', e => { exp.desc = e.target.value; });
+
+    // Amount
+    card.querySelector('.exp-amount').addEventListener('input', e => {
+      exp.amount = parseFloat(e.target.value) || 0;
+    });
+
+    // Payer
+    card.querySelector('.exp-payer').addEventListener('change', e => {
+      exp.payerId = parseInt(e.target.value) || null;
+    });
+
+    // Remove
+    card.querySelector('.expense-remove-btn').addEventListener('click', () => removeExpense(exp.id));
+
+    // Split chips
+    renderSplitChips(card.querySelector('.split-among-chips'), exp);
+
+    list.appendChild(card);
+  });
+
+  // Hide settlement result when expenses change
+  document.getElementById('settlementResult').classList.add('hidden');
+  document.getElementById('settlementEmpty').classList.remove('hidden');
+}
+
+function renderSplitChips(container, exp) {
+  container.innerHTML = '';
+
+  // "Everyone" chip
+  const allChip = document.createElement('span');
+  const allSelected = trip.people.every(p => exp.splitAmong.includes(p.id));
+  allChip.className = 'split-chip split-chip-all' + (allSelected ? ' selected' : '');
+  allChip.textContent = 'Everyone';
+  allChip.addEventListener('click', () => {
+    if (allSelected) {
+      exp.splitAmong = [];
+    } else {
+      exp.splitAmong = trip.people.map(p => p.id);
+    }
+    renderExpenses();
+  });
+  container.appendChild(allChip);
+
+  // Individual chips
+  trip.people.forEach(p => {
+    const chip = document.createElement('span');
+    const sel  = exp.splitAmong.includes(p.id);
+    chip.className = 'split-chip' + (sel ? ' selected' : '');
+    chip.textContent = p.name || 'Person';
+    chip.addEventListener('click', () => {
+      if (sel) {
+        exp.splitAmong = exp.splitAmong.filter(id => id !== p.id);
+      } else {
+        exp.splitAmong.push(p.id);
+      }
+      renderExpenses();
+    });
+    container.appendChild(chip);
+  });
+}
+
+function refreshAllExpenseSplitChips() {
+  renderExpenses();
+}
+
+// ─── SETTLE UP ───────────────────────────
+document.getElementById('settleBtn').addEventListener('click', runSettlement);
+
+function runSettlement() {
+  if (trip.people.length < 2) { alert('Add at least 2 people.'); return; }
+  if (trip.expenses.length === 0) { alert('Add at least one expense.'); return; }
+
+  // Validate
+  for (const e of trip.expenses) {
+    if (!e.payerId) { alert(`One expense is missing a payer. Please fill all fields.`); return; }
+    if (e.splitAmong.length === 0) { alert(`One expense has nobody to split among. Select at least one person.`); return; }
+    if (e.amount <= 0) { alert(`All expenses must have an amount greater than 0.`); return; }
+  }
+
+  // ── Compute net balances ──
+  // balance[id] = total paid - total owed
+  const balance = {};
+  trip.people.forEach(p => balance[p.id] = 0);
+
+  let grandTotal = 0;
+
+  trip.expenses.forEach(exp => {
+    const share = exp.amount / exp.splitAmong.length;
+    grandTotal += exp.amount;
+
+    // Payer gets credited
+    balance[exp.payerId] += exp.amount;
+
+    // Each person in splitAmong owes their share
+    exp.splitAmong.forEach(pid => {
+      balance[pid] -= share;
+    });
+  });
+
+  // ── Min-cash-flow algorithm ──
+  const transactions = minCashFlow(balance);
+
+  // ── Render ──
+  displaySettlement(balance, transactions, grandTotal);
+}
+
+function minCashFlow(balance) {
+  // Deep copy and work with floating point rounded
+  const bal = {};
+  for (const id in balance) bal[id] = Math.round(balance[id] * 100) / 100;
+
+  const transactions = [];
+  const EPSILON = 0.005;
+
+  for (let iter = 0; iter < 100; iter++) {
+    // Find max creditor and max debtor
+    let maxCredId = null, maxDebtId = null;
+    let maxCred = 0, maxDebt = 0;
+
+    for (const id in bal) {
+      if (bal[id] > maxCred)  { maxCred = bal[id];  maxCredId = id; }
+      if (bal[id] < maxDebt) { maxDebt = bal[id];  maxDebtId = id; }
+    }
+
+    if (maxCredId === null || maxDebtId === null) break;
+    if (maxCred < EPSILON && Math.abs(maxDebt) < EPSILON) break;
+
+    // Settle min(credit, debt)
+    const amount = Math.min(maxCred, Math.abs(maxDebt));
+    if (amount < EPSILON) break;
+
+    transactions.push({
+      from: parseInt(maxDebtId),
+      to:   parseInt(maxCredId),
+      amount: Math.round(amount * 100) / 100,
+    });
+
+    bal[maxCredId] -= amount;
+    bal[maxDebtId] += amount;
+  }
+
+  return transactions;
+}
+
+function displaySettlement(balance, transactions, grandTotal) {
+  const result = document.getElementById('settlementResult');
+  const empty  = document.getElementById('settlementEmpty');
+
+  result.classList.remove('hidden');
+  empty.classList.add('hidden');
+
+  // Summary strip
+  const summary = document.getElementById('settlementSummary');
+  summary.innerHTML = `
+    <div class="ss-item"><span class="ss-label">Total Spent</span><span class="ss-value">₹${grandTotal.toFixed(2)}</span></div>
+    <div class="ss-item"><span class="ss-label">Expenses</span><span class="ss-value">${trip.expenses.length}</span></div>
+    <div class="ss-item"><span class="ss-label">People</span><span class="ss-value">${trip.people.length}</span></div>
+  `;
+
+  // Transaction count
+  document.getElementById('txCount').textContent =
+    transactions.length === 0 ? 'All settled! 🎉' : `${transactions.length} payment${transactions.length > 1 ? 's' : ''}`;
+
+  // Transaction list
+  const list = document.getElementById('settlementList');
+  list.innerHTML = '';
+
+  if (transactions.length === 0) {
+    list.innerHTML = `<div class="expense-empty" style="color:var(--accent)">Everyone is already settled. No payments needed! 🎉</div>`;
+  } else {
+    transactions.forEach((tx, i) => {
+      const fromName = trip.people.find(p => p.id === tx.from)?.name || 'Person';
+      const toName   = trip.people.find(p => p.id === tx.to)?.name   || 'Person';
+      const row = document.createElement('div');
+      row.className = 'settlement-tx';
+      row.style.animationDelay = `${i * 0.06}s`;
+      row.innerHTML = `
+        <span class="stx-from">${escHtmlT(fromName)}</span>
+        <span class="stx-arrow">→</span>
+        <span class="stx-to">${escHtmlT(toName)}</span>
+        <span class="stx-pays">₹${tx.amount.toFixed(2)}</span>
+      `;
+      list.appendChild(row);
+    });
+  }
+
+  // Balances breakdown
+  const balDiv = document.getElementById('settlementBalances');
+  balDiv.innerHTML = '<div class="bal-title">Individual Balances</div><div class="bal-grid"></div>';
+  const grid = balDiv.querySelector('.bal-grid');
+
+  trip.people.forEach(p => {
+    const bal = Math.round(balance[p.id] * 100) / 100;
+    const chip = document.createElement('div');
+    chip.className = 'bal-chip ' + (bal > 0.005 ? 'positive' : bal < -0.005 ? 'negative' : 'zero');
+    const statusText = bal > 0.005 ? 'gets back' : bal < -0.005 ? 'owes' : 'settled ✓';
+    chip.innerHTML = `
+      <span class="bal-name">${escHtmlT(p.name || 'Person')}</span>
+      <span class="bal-amount">${bal >= 0 ? '+' : ''}₹${Math.abs(bal).toFixed(2)}</span>
+      <span class="bal-status">${statusText}</span>
+    `;
+    grid.appendChild(chip);
+  });
+
+  // Scroll to result
+  result.scrollIntoView({ behavior: 'smooth', block: 'start' });
+}
+
+// ─── COPY SETTLEMENT ─────────────────────
+document.getElementById('copySettlementBtn').addEventListener('click', () => {
+  const txs = document.querySelectorAll('.settlement-tx');
+  let text = '🧳 TRIP SETTLEMENT\n\n';
+  txs.forEach(tx => {
+    const from  = tx.querySelector('.stx-from').textContent;
+    const to    = tx.querySelector('.stx-to').textContent;
+    const pays  = tx.querySelector('.stx-pays').textContent;
+    text += `${from} → ${to}: ${pays}\n`;
+  });
+  navigator.clipboard.writeText(text).then(() => {
+    const btn = document.getElementById('copySettlementBtn');
+    const orig = btn.textContent;
+    btn.textContent = 'Copied! 🎉';
+    setTimeout(() => btn.textContent = orig, 2000);
+  });
+});
+
+// ─── UTIL (local scope) ──────────────────
+function escHtmlT(s) {
+  return String(s).replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;');
 }
