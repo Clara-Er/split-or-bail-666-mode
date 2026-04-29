@@ -9,53 +9,86 @@
 </head>
 <body>
 
-  <!-- ───────── NORMAL MODE ───────── -->
+  <!-- ─── NORMAL MODE ─── -->
   <div id="app" class="app">
-
     <header class="hero">
       <div class="hero-tag">Bill Splitter</div>
       <h1 class="hero-title">Split or<br><span class="accent">Bail.</span></h1>
-      <p class="hero-sub">Divide dinner. Dodge awkward math. Keep the friendship.</p>
+      <p class="hero-sub">Fair splits. No drama. Keep the friendship.</p>
     </header>
 
-    <main class="card-grid">
+    <div class="mode-toggle-wrap">
+      <div class="mode-toggle">
+        <button class="mode-btn active" id="modeEqualBtn">⚖️ Equal Split</button>
+        <button class="mode-btn" id="modeFairBtn">🧾 Fair Split</button>
+      </div>
+      <p class="mode-desc" id="modeDesc">Everyone pays the same amount.</p>
+    </div>
 
+    <main class="card-grid">
       <!-- INPUT CARD -->
       <section class="card card--input">
         <div class="card-label">The Setup</div>
 
-        <div class="field-group">
-          <label>Total Bill ($)</label>
-          <input id="billAmount" type="number" placeholder="0.00" min="0" step="0.01" autocomplete="off"/>
-          <span class="field-hint">Try typing 666 👀</span>
-        </div>
-
-        <div class="field-group">
-          <label>Number of People</label>
-          <div class="counter-row">
-            <button class="counter-btn" id="decreasePeople">−</button>
-            <span id="peopleCount">2</span>
-            <button class="counter-btn" id="increasePeople">+</button>
+        <!-- EQUAL SPLIT UI -->
+        <div id="equalSection">
+          <div class="field-group">
+            <label>Total Bill (₹)</label>
+            <input id="billAmount" type="number" placeholder="0.00" min="0" step="0.01" autocomplete="off"/>
+            <span class="field-hint">Try typing 666 👀</span>
+          </div>
+          <div class="field-group">
+            <label>Number of People</label>
+            <div class="counter-row">
+              <button class="counter-btn" id="decreasePeople">−</button>
+              <span id="peopleCount">2</span>
+              <button class="counter-btn" id="increasePeople">+</button>
+            </div>
+          </div>
+          <div class="field-group">
+            <label>Tip %</label>
+            <div class="tip-chips" id="equalTipChips">
+              <button class="tip-chip" data-tip="0">0%</button>
+              <button class="tip-chip active" data-tip="10">10%</button>
+              <button class="tip-chip" data-tip="15">15%</button>
+              <button class="tip-chip" data-tip="18">18%</button>
+              <button class="tip-chip" data-tip="20">20%</button>
+              <button class="tip-chip" data-tip="25">25%</button>
+            </div>
+            <input id="customTip" type="number" placeholder="Custom %" min="0" max="100"/>
+          </div>
+          <div class="field-group">
+            <label>Name the split</label>
+            <div id="namesList" class="names-list"></div>
+            <button class="add-name-btn" id="addNameBtn">+ Add person</button>
           </div>
         </div>
 
-        <div class="field-group">
-          <label>Tip %</label>
-          <div class="tip-chips">
-            <button class="tip-chip" data-tip="0">0%</button>
-            <button class="tip-chip active" data-tip="10">10%</button>
-            <button class="tip-chip" data-tip="15">15%</button>
-            <button class="tip-chip" data-tip="18">18%</button>
-            <button class="tip-chip" data-tip="20">20%</button>
-            <button class="tip-chip" data-tip="25">25%</button>
+        <!-- FAIR SPLIT UI -->
+        <div id="fairSection" class="hidden">
+          <div class="fair-hint-box">
+            <span>💡</span>
+            <p>Enter each person's name and what they ordered. Tip is split <strong>proportionally</strong> — you pay for what you ate, not what others ordered.</p>
           </div>
-          <input id="customTip" type="number" placeholder="Custom %" min="0" max="100"/>
-        </div>
-
-        <div class="field-group">
-          <label>Name the split</label>
-          <div id="namesList" class="names-list"></div>
-          <button class="add-name-btn" id="addNameBtn">+ Add person</button>
+          <div class="field-group" style="margin-top:20px">
+            <label>Tip % (split proportionally)</label>
+            <div class="tip-chips" id="fairTipChips">
+              <button class="tip-chip" data-tip="0">0%</button>
+              <button class="tip-chip active" data-tip="10">10%</button>
+              <button class="tip-chip" data-tip="15">15%</button>
+              <button class="tip-chip" data-tip="18">18%</button>
+              <button class="tip-chip" data-tip="20">20%</button>
+              <button class="tip-chip" data-tip="25">25%</button>
+            </div>
+            <input id="fairCustomTip" type="number" placeholder="Custom %" min="0" max="100"/>
+          </div>
+          <div id="fairPersonList" class="fair-person-list"></div>
+          <button class="add-name-btn" id="addFairPersonBtn">+ Add person</button>
+          <div class="fair-table-total">
+            <span>Table Total</span>
+            <strong id="fairTableTotal">₹0.00</strong>
+          </div>
+          <span class="field-hint">Type 666 as someone's amount for a surprise 👀</span>
         </div>
       </section>
 
@@ -63,102 +96,86 @@
       <section class="card card--result">
         <div class="card-label">The Verdict</div>
 
-        <div class="result-row">
-          <span>Subtotal</span>
-          <strong id="resSubtotal">$0.00</strong>
-        </div>
-        <div class="result-row">
-          <span>Tip</span>
-          <strong id="resTip">$0.00</strong>
-        </div>
-        <div class="result-row result-row--total">
-          <span>Total</span>
-          <strong id="resTotal">$0.00</strong>
-        </div>
-
-        <div class="divider"></div>
-
-        <div class="per-person-box">
-          <div class="pp-label">Each person pays</div>
-          <div class="pp-amount" id="resPerPerson">$0.00</div>
+        <div id="equalResult">
+          <div class="result-row"><span>Subtotal</span><strong id="resSubtotal">₹0.00</strong></div>
+          <div class="result-row"><span>Tip</span><strong id="resTip">₹0.00</strong></div>
+          <div class="result-row result-row--total"><span>Total</span><strong id="resTotal">₹0.00</strong></div>
+          <div class="divider"></div>
+          <div class="per-person-box">
+            <div class="pp-label">Each person pays</div>
+            <div class="pp-amount" id="resPerPerson">₹0.00</div>
+          </div>
+          <div id="personBreakdown" class="person-breakdown"></div>
         </div>
 
-        <div id="personBreakdown" class="person-breakdown"></div>
+        <div id="fairResult" class="hidden">
+          <div id="fairResultList" class="fair-result-list"></div>
+          <div class="divider"></div>
+          <div class="result-row result-row--total"><span>Grand Total</span><strong id="fairGrandTotal">₹0.00</strong></div>
+        </div>
 
         <button class="cta-btn" id="copyBtn">Copy Split 📋</button>
         <button class="cta-btn cta-btn--ghost" id="resetBtn">Reset</button>
-
-        <div id="copyToast" class="toast">Copied to clipboard! 🎉</div>
+        <div id="copyToast" class="toast">Copied! 🎉</div>
       </section>
-
     </main>
 
-    <footer class="footer">
-      Made with mild anxiety &amp; too much caffeine.
-    </footer>
+    <footer class="footer">• Fair splits, always.</footer>
   </div>
 
-  <!-- ───────── HORROR MODE ───────── -->
+  <!-- ─── HORROR MODE ─── -->
   <div id="horrorApp" class="horror-app hidden">
-
-    <div id="glitchOverlay" class="glitch-overlay"></div>
-    <div id="staticNoise" class="static-noise"></div>
+    <div class="glitch-overlay"></div>
+    <div class="static-noise"></div>
+    <div id="corruptionLayer" class="corruption-layer"></div>
+    <div id="vignetteLayer" class="vignette-layer"></div>
 
     <div class="horror-container">
-      <div id="horrorHeader" class="horror-header">
-        <div class="horror-signal">▓▓░░ SIGNAL INTERCEPTED ░░▓▓</div>
+      <div class="horror-header">
+        <div class="horror-signal" id="horrorSignal">▓▓░░ SIGNAL INTERCEPTED ░░▓▓</div>
         <h1 class="horror-title" data-text="SPLIT OR SUFFER">SPLIT OR SUFFER</h1>
-        <p class="horror-sub">The Entity has joined your table.</p>
+        <p class="horror-sub" id="horrorSub">The Entity has joined your table.</p>
       </div>
 
-      <div class="horror-card">
+      <div class="horror-card" id="horrorCard">
         <div class="horror-entity-status">
-          <div class="entity-dot"></div>
+          <div class="entity-dot" id="entityDot"></div>
           <span id="entityStatusText">The Entity is watching...</span>
         </div>
 
-        <!-- Horror chat -->
-        <div id="horrorChat" class="horror-chat">
-          <div class="chat-msg entity-msg" id="openingMsg">
-            <span class="entity-label">ENTITY_666</span>
-            <p></p>
-          </div>
-        </div>
+        <div id="horrorChat" class="horror-chat"></div>
 
-        <!-- Horror bill display -->
         <div class="horror-bill-display">
-          <div class="hb-row">
-            <span>Bill Summoned</span>
-            <span id="hBill">$0.00</span>
-          </div>
-          <div class="hb-row">
-            <span>The Entity's Cut</span>
-            <span id="hEntityCut" class="flicker">$0.00</span>
-          </div>
-          <div class="hb-row hb-total">
-            <span>Your Debt</span>
-            <span id="hYourDebt">$0.00</span>
-          </div>
+          <div class="hb-row"><span>Bill Summoned</span><span id="hBill">₹0.00</span></div>
+          <div class="hb-row"><span>The Entity's Tithe</span><span id="hEntityCut" class="flicker">₹0.00</span></div>
+          <div class="hb-row hb-total"><span>Your Debt (per soul)</span><span id="hYourDebt">₹0.00</span></div>
         </div>
 
-        <!-- Typing danger zone -->
-        <div class="horror-input-area" id="horrorInputArea">
+        <div class="horror-input-area">
           <div class="danger-bar-wrap">
-            <div class="danger-label" id="dangerLabel">RESPOND OR IT GETS CLOSER</div>
+            <div class="danger-label" id="dangerLabel">RESPOND. OR IT GETS CLOSER.</div>
             <div class="danger-bar"><div id="dangerFill" class="danger-fill"></div></div>
           </div>
           <div class="horror-input-row">
-            <input id="horrorInput" type="text" class="horror-input" placeholder="Type your response..." autocomplete="off"/>
+            <input id="horrorInput" type="text" class="horror-input" placeholder="Type or it moves..." autocomplete="off" spellcheck="false"/>
             <button id="horrorSend" class="horror-send-btn">SEND</button>
           </div>
         </div>
 
-        <!-- Proximity meter -->
         <div class="proximity-wrap">
-          <div class="prox-label">PROXIMITY</div>
+          <div class="prox-label">— PROXIMITY —</div>
           <div class="prox-track">
-            <div id="entityMarker" class="entity-marker">👁️</div>
+            <div id="entityMarker" class="entity-marker">👁</div>
             <div class="you-marker">YOU</div>
+          </div>
+          <div class="prox-desc" id="proxDesc">Safe distance maintained.</div>
+        </div>
+
+        <div class="warning-level-wrap">
+          <div class="wl-label">THREAT LEVEL</div>
+          <div class="wl-pips" id="wlPips">
+            <span class="wl-pip"></span><span class="wl-pip"></span><span class="wl-pip"></span>
+            <span class="wl-pip"></span><span class="wl-pip"></span>
           </div>
         </div>
 
